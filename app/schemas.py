@@ -28,4 +28,6 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
-
+# Master password verification
+class MasterPasswordVerify(BaseModel):
+    master_password: str

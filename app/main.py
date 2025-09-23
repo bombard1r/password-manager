@@ -7,18 +7,44 @@ from datetime import timedelta
 
 from database import get_db
 from models import User
-from schemas import UserResponse, UserCreate, Token, UserLogin
+from schemas import UserResponse, UserCreate, Token, UserLogin, MasterPasswordVerify
 from auth import (
         hash_password,
+        verify_password,
         authenticate_user,
         ACCESS_TOKEN_EXPIRE_MINUTES,
         create_access_token,
+        verify_token
         )
 
 app = FastAPI(title="Password Manager")
 
+security = HTTPBearer()
+
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+def get_current_user(
+        credentials: HTTPAuthorizationCredentials = Depends(security),
+        db: Session = Depends(get_db)
+        ):
+    # Get current user from JWT token
+    token = credentials.credentials
+    email = verify_token(token)
+    if email is None:
+        raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid auth credentials"
+                )
+
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found"
+                )
+    return user
+
 
 @app.get("/")
 async def root():
@@ -86,6 +112,21 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
 
     return {"access_token": access_token, "token_type": "bearer"}
 
+@app.post("/api/verify-master")
+async def verify_master(
+        master_data: MasterPasswordVerify,
+        current_user: User = Depends(get_current_user)
+        ):
+    # Verify master password
+    is_valid = verify_password(master_data.master_password, current_user.master_key)
+
+    if not is_valid:
+        raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid master password"
+                )
+
+    return {"Message": "Master password verified", "valid": True}
 
 
 if __name__ == "__main__":
