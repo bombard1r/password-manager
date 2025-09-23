@@ -1,6 +1,14 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
+from datetime import timedelta
+
+from database import get_db
+from models import User
+from schemas import UserResponse, UserCreate
+from auth import hash_password
 
 app = FastAPI(title="Password Manager")
 
@@ -24,6 +32,35 @@ async def root():
 @app.get("/api/health")
 async def health_check():
     return {"status": "healthy", "message": "Server is running!"}
+
+# Auth endpoints
+@app.post("/api/register", response_model=UserResponse)
+async def register(user_data: UserCreate, db: Session = Depends(get_db)):
+    # Register a new user
+    print(user_data)
+    # Check if user exists
+    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    if existing_user:
+        raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+                )
+
+    # Create new user
+    hashed_password = hash_password(user_data.password)
+    hashed_master_password = hash_password(user_data.master_password)
+
+    new_user = User(
+            email=user_data.email,
+            hashed_password=hashed_password,
+            master_key=hashed_master_password
+            )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return new_user
 
 if __name__ == "__main__":
     import uvicorn
