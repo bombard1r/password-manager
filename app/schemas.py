@@ -18,4 +18,14 @@ class UserCreate(BaseModel):
     password: str
     master_password: str
 
+# Token response
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+# User login
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
 

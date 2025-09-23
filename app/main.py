@@ -7,8 +7,13 @@ from datetime import timedelta
 
 from database import get_db
 from models import User
-from schemas import UserResponse, UserCreate
-from auth import hash_password
+from schemas import UserResponse, UserCreate, Token, UserLogin
+from auth import (
+        hash_password,
+        authenticate_user,
+        ACCESS_TOKEN_EXPIRE_MINUTES,
+        create_access_token,
+        )
 
 app = FastAPI(title="Password Manager")
 
@@ -61,6 +66,27 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
 
     return new_user
+
+@app.post("/api/login", response_model=Token)
+async def login(user_data: UserLogin, db: Session = Depends(get_db)):
+    # Authenticate user and return JWT
+    user = authenticate_user(db, user_data.email, user_data.password)
+    if not user:
+        raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                )
+
+    # Create JWT token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+            data={"sub": user.email},
+            expires_delta=access_token_expires
+            )
+
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
 
 if __name__ == "__main__":
     import uvicorn
