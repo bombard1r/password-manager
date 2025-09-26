@@ -53,3 +53,4 @@ def verify_token(token: str) -> Optional[str]:
         return email
     except JWTError:
         return None
+

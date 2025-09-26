@@ -31,3 +31,39 @@ class UserLogin(BaseModel):
 # Master password verification
 class MasterPasswordVerify(BaseModel):
     master_password: str
+
+
+# Password Response
+class PasswordResponse(BaseModel):
+    id: int
+    service_name: str
+    username: str
+    url: Optional[str]
+    notes: Optional[str]
+    created_at: datetime
+    updated_at:datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Password create
+class PasswordCreate(BaseModel):
+    service_name: str
+    username: Optional[str] = None
+    password: str
+    url: Optional[str] = None
+    notes: Optional[str] = None
+    master_password: str
+
+# Password update
+class PasswordUpdate(BaseModel):
+    service_name: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    url: Optional[str] = None
+    notes: Optional[str] = None
+    master_password: str
+
+
+

@@ -6,8 +6,11 @@ from sqlalchemy.orm import Session
 from datetime import timedelta
 
 from database import get_db
-from models import User
-from schemas import UserResponse, UserCreate, Token, UserLogin, MasterPasswordVerify
+from models import User, Password
+from schemas import (
+    UserResponse, UserCreate, Token, UserLogin, MasterPasswordVerify,
+    PasswordResponse, PasswordCreate, PasswordUpdate
+        )
 from auth import (
         hash_password,
         verify_password,
@@ -16,6 +19,8 @@ from auth import (
         create_access_token,
         verify_token
         )
+from crypto import encrypt_password, decrypt_password
+
 
 app = FastAPI(title="Password Manager")
 
@@ -135,6 +140,52 @@ async def verify_master(
 
     print(current_user)
     return {"Message": "Master password verified", "valid": True}
+
+
+# Password management endpoints
+@app.get("/api/passwords", response_model=list[PasswordResponse])
+async def get_passwords(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+        ):
+    # Get all passwords for the current user
+    passwords = db.query(Password).filter(Password.user_id == current_user.id).all()
+    return passwords
+
+@app.post("/api/passwords", response_model=PasswordResponse)
+async def create_password(
+        password_data: PasswordCreate,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+        ):
+    # Add a new password entry
+    # Verify master password first
+    if not verify_password(password_data.master_password, current_user.master_key):
+        raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid master password"
+                )
+    
+    # Encrypt password
+    encrypted_password = encrypt_password(password_data.password, password_data.master_password)
+
+    # Create password entry
+    new_password = Password(
+            user_id=current_user.id,
+            service_name=password_data.service_name,
+            username=password_data.username,
+            encrypted_password=encrypted_password,
+            url=password_data.url,
+            notes=password_data.notes
+            )
+
+    db.add(new_password)
+    db.commit()
+    db.refresh(new_password)
+
+    return new_password
+
+
 
 
 if __name__ == "__main__":
